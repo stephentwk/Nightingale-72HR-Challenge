@@ -1,0 +1,61 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#10263d" />
+    <title>Nightingale · Care Note</title>
+    <link rel="stylesheet" href="/styles.css" />
+  </head>
+  <body>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <div class="brand-lockup">
+          <div class="brand-mark" aria-hidden="true"><span></span><span></span><span></span></div>
+          <div><strong>Nightingale</strong><small>Care Note</small></div>
+        </div>
+
+        <div class="clinic-switcher">
+          <span class="eyebrow">Workspace</span>
+          <button class="clinic-button"><span class="clinic-dot"></span>Harbour Clinic <span class="chevron">⌄</span></button>
+        </div>
+
+        <label class="search-box" for="patient-search">
+          <span aria-hidden="true">⌕</span><input id="patient-search" placeholder="Find a patient" value="Maya Chen" /><kbd>⌘ K</kbd>
+        </label>
+
+        <nav class="main-nav" aria-label="Main navigation">
+          <button class="nav-item active" data-nav="glance"><span class="nav-icon">◈</span>Care note</button>
+          <button class="nav-item" data-nav="queue"><span class="nav-icon">◷</span>Review queue <b class="nav-count">3</b></button>
+          <button class="nav-item" data-nav="patients"><span class="nav-icon">♧</span>Patients</button>
+        </nav>
+
+        <div class="sidebar-divider"></div>
+        <div class="sidebar-label">Recent patients</div>
+        <button class="patient-mini active"><span class="avatar avatar-teal">MC</span><span><strong>Maya Chen</strong><small>Review tomorrow · 09:30</small></span><i class="presence"></i></button>
+        <button class="patient-mini"><span class="avatar avatar-lilac">JL</span><span><strong>Jin Lee</strong><small>Last seen 19 Feb</small></span></button>
+        <button class="patient-mini"><span class="avatar avatar-yellow">SR</span><span><strong>Samira Rao</strong><small>Needs follow-up</small></span></button>
+
+        <div class="sidebar-bottom">
+          <div class="privacy-pod"><span class="lock-icon">⌑</span><div><strong>Synthetic workspace</strong><small>No PHI · demo safe</small></div><span class="status-dot"></span></div>
+          <div class="user-chip"><span class="avatar avatar-navy" id="actor-avatar">AP</span><div><strong id="actor-name">Arjun Patel</strong><small id="actor-role">Clinician · Harbour</small></div><span>•••</span></div>
+        </div>
+      </aside>
+
+      <main class="main-content">
+        <header class="topbar">
+          <div class="breadcrumbs"><span>Patients</span><span>/</span><strong>Maya Chen</strong><span class="live-pill"><i></i> Live note</span></div>
+          <div class="topbar-actions">
+            <button class="quiet-button" id="open-command"><span>⌘</span> Quick actions <kbd>⌘ K</kbd></button>
+            <button class="icon-button" title="Notifications">♧<i class="notification-dot"></i></button>
+            <div class="role-control"><label for="role-select">View as</label><select id="role-select"><option value="clinician">Clinician</option><option value="staff">Staff / nurse</option><option value="patient">Patient</option><option value="admin">Admin</option></select></div>
+          </div>
+        </header>
+        <div id="toast-region" class="toast-region" aria-live="polite"></div>
+        <div id="workspace" class="workspace" aria-live="polite"></div>
+      </main>
+    </div>
+    <div id="modal-root"></div>
+    <script src="/app.js"></script>
+  </body>
+</html>

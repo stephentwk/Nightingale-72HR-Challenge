@@ -1,0 +1,15 @@
+Nightingale Care Note — external libraries, models and licenses
+
+This prototype intentionally has no runtime package dependencies and no external model call.
+
+Runtime / UI
+- Python 3.10+ standard library (http.server, json, difflib, unittest, pathlib, datetime, re, threading, uuid, time, math). Python Software Foundation License 2.0.
+- Browser APIs: Fetch, DOM, Intl.DateTimeFormat, localStorage. Provided by the user’s browser; no separate project dependency.
+- Fonts: the CSS includes a best-effort Google Fonts import for DM Sans, DM Mono, and Space Grotesk. The UI falls back to system fonts when offline. Google Fonts terms apply to the hosted font files; remove the import for a fully offline deployment.
+
+Models
+- No LLM or transcription model is called in the demo. AI-scribed entries are synthetic fixtures and the capture endpoint accepts only a redacted synthetic transcript.
+
+Design / content
+- All patient, clinic, transcript, task, and audit data is original synthetic demo content created for this challenge.
+- No screenshots, icons, or code were copied from third-party products. UI symbols are Unicode characters and CSS shapes.
