@@ -226,7 +226,7 @@ function render() {
 
 function openModal(content, wide = false) {
   state.modal = true;
-  document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop" data-close-modal><div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">${content}</div></div>`;
+  document.getElementById('modal-root').innerHTML = `<div class="modal-backdrop"><div class="modal ${wide ? 'wide' : ''}" role="dialog" aria-modal="true">${content}</div></div>`;
 }
 
 function closeModal() {
@@ -326,7 +326,11 @@ async function jumpTo(entryId, quote = '') {
 }
 
 document.addEventListener('click', async (event) => {
-  const target = event.target.closest('button, [data-close-modal]');
+  // Only the backdrop itself dismisses a modal. Using closest() with the
+  // backdrop as a selector made every click inside the dialog look like a
+  // backdrop click, which broke selects, textareas, and form submission.
+  if (event.target instanceof Element && event.target.classList.contains('modal-backdrop')) { closeModal(); return; }
+  const target = event.target.closest('button');
   if (!target) return;
   if (target.hasAttribute('data-close-modal')) { closeModal(); return; }
   if (target.dataset.filter) { state.filter = target.dataset.filter; render(); return; }

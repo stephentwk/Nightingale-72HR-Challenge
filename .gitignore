@@ -4,6 +4,5 @@ __pycache__/
 .coverage
 .DS_Store
 
-# Challenge-only presentation notes kept locally, but not part of the pushed repo.
 DEMO_SCRIPT.md
 TECHNICAL_BRIEF.md
