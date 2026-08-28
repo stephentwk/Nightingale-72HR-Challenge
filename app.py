@@ -29,6 +29,7 @@ HOST = "127.0.0.1"
 PORT = 8000
 CLINIC_ID = "clinic-harbour"
 PATIENT_ID = "pat-maya-chen"
+PATIENT_SAFETY_MESSAGE = "If chest pain returns, seek urgent care rather than waiting for a message."
 
 ROLES = {"patient", "staff", "clinician", "admin"}
 ACTORS = {
@@ -160,8 +161,11 @@ class CareNoteStore:
             "patient_summary": "Your care team is reviewing a recent symptom change and your blood pressure trend.",
             "patient_instructions": [
                 "Bring your home blood-pressure log to the next visit.",
-                "If chest pain returns, seek urgent care rather than waiting for a message.",
+                PATIENT_SAFETY_MESSAGE,
             ],
+            "patient_prep_version": 1,
+            "patient_prep_updated_at": "2026-02-06T19:02:00+08:00",
+            "patient_prep_updated_by": "cl-dr-patel",
         }
 
     def _add_entry(self, entry: dict) -> dict:
@@ -526,13 +530,14 @@ class CareNoteStore:
             self._scope(actor, patient_id)
             timeline = self.timeline(patient_id, actor)
             now = datetime.now(timezone.utc)
-            candidates: list[dict] = []
+            candidates_by_feature: dict[str, dict] = {}
             risk_terms = {
                 "chest pressure": ("high", "Potential cardiac symptom; requires clinician review."),
                 "chest pain": ("high", "Potential cardiac symptom; do not let an AI summary close the loop."),
                 "shortness of breath": ("high", "Breathing symptom; review against asthma history."),
                 "missed": ("medium", "Medication adherence may change the interpretation of the BP trend."),
                 "allergy": ("high", "Allergy information is safety-critical and must be verified."),
+                "ecg": ("medium", "The ECG is an unresolved care action; verify ownership before review."),
             }
             for entry in timeline:
                 content_lower = entry.get("content", "").lower()
@@ -551,28 +556,42 @@ class CareNoteStore:
                     tag_boost = 8.0 if phrase in [tag.lower() for tag in entry.get("tags", [])] else 0.0
                     learned = self._learning_weight(entry.get("tags", []), content_lower)
                     score = min(99.0, max(floor, floor + recency + unresolved * 10 + tag_boost + learned))
-                    candidates.append(
-                        {
-                            "id": f"hl-{entry['id']}-{phrase.replace(' ', '-')}",
-                            "entry_id": entry["id"],
-                            "title": phrase.title(),
-                            "importance_score": round(score, 1),
-                            "risk_level": risk,
-                            "risk_reason": reason,
-                            "confidence_label": self.confidence_label(entry.get("confidence")),
-                            "confidence_basis": "Evidence span + deterministic safety rule",
-                            "status": self.highlights.get(f"hl-{entry['id']}-{phrase.replace(' ', '-')}", {}).get("status", "suggested"),
-                            "feature": phrase,
-                            "source_label": entry.get("source_label"),
-                            "provenance_pointer": source_pointer(entry, phrase),
-                            "entry_title": entry["title"],
-                            "created_at": entry["created_at"],
-                            "source_type": entry["type"],
-                        }
-                    )
+                    candidate = {
+                        "id": f"hl-signal-{phrase.replace(' ', '-')}",
+                        "entry_id": entry["id"],
+                        "title": phrase.title(),
+                        "importance_score": round(score, 1),
+                        "risk_level": risk,
+                        "risk_reason": reason,
+                        "confidence_label": self.confidence_label(entry.get("confidence")),
+                        "confidence_basis": "Evidence span + deterministic safety rule",
+                        "feature": phrase,
+                        "source_label": entry.get("source_label"),
+                        "provenance_pointer": source_pointer(entry, phrase),
+                        "entry_title": entry["title"],
+                        "created_at": entry["created_at"],
+                        "source_type": entry["type"],
+                        "source_count": 1,
+                        "source_entries": [entry["id"]],
+                    }
+                    existing = candidates_by_feature.get(phrase)
+                    if existing:
+                        candidate["source_count"] = existing["source_count"] + 1
+                        candidate["source_entries"] = existing["source_entries"] + [entry["id"]]
+                        # One signal represents one clinical concept. Keep the
+                        # strongest source as the citation while retaining the
+                        # number of corroborating timeline entries.
+                        if (score, entry["created_at"]) <= (existing["importance_score"], existing["created_at"]):
+                            existing["source_count"] = candidate["source_count"]
+                            existing["source_entries"] = candidate["source_entries"]
+                            continue
+                    candidates_by_feature[phrase] = candidate
+            candidates = list(candidates_by_feature.values())
+            for candidate in candidates:
+                candidate["status"] = self.highlights.get(candidate["id"], {}).get("status", "suggested")
             # Clinician-confirmed and unresolved items float together, then the
             # timeline order breaks ties. Critical floors cannot be learned away.
-            return sorted(candidates, key=lambda item: (-item["importance_score"], item["created_at"]))[:8]
+            return sorted(candidates, key=lambda item: (-item["importance_score"], item["created_at"]), reverse=False)
 
     @staticmethod
     def confidence_label(value: Optional[float]) -> str:
@@ -808,13 +827,25 @@ class CareNoteStore:
             highlight = next((item for item in highlights if item["id"] == highlight_id), None)
             if not highlight:
                 raise PolicyError("Highlight suggestion not found", 404)
-            if decision not in {"accepted", "rejected"}:
-                raise PolicyError("Decision must be accepted or rejected", 422)
+            if decision not in {"accepted", "rejected", "undecided"}:
+                raise PolicyError("Decision must be accepted, rejected, or undecided", 422)
+            # A changed decision retracts the feedback attached to the prior
+            # choice, so an accidental Keep does not permanently bias ranking.
+            self.learning_signals = [
+                signal for signal in self.learning_signals
+                if signal.get("highlight_id") != highlight_id
+            ]
+            if decision == "undecided":
+                self.highlights.pop(highlight_id, None)
+                self._audit(actor, "highlight_decision_cleared", "highlight", highlight_id, feature=highlight["feature"], entry_id=highlight["entry_id"])
+                highlight["status"] = "suggested"
+                return highlight
             self.highlights[highlight_id] = {"status": decision, "decided_by": actor["id"], "decided_at": now_iso()}
             if decision == "accepted":
                 self.learning_signals.append(
                     {
                         "id": f"learn-{uuid.uuid4().hex[:10]}",
+                        "highlight_id": highlight_id,
                         "feature": highlight["feature"],
                         "action": "accepted",
                         "actor_role": actor["role"],
@@ -824,6 +855,40 @@ class CareNoteStore:
             self._audit(actor, f"highlight_{decision}", "highlight", highlight_id, feature=highlight["feature"], entry_id=highlight["entry_id"])
             highlight["status"] = decision
             return highlight
+
+    def update_patient_prep(self, patient_id: str, actor: dict, payload: dict) -> dict:
+        with self.lock:
+            patient = self._scope(actor, patient_id)
+            if actor["role"] not in {"staff", "clinician"}:
+                raise PolicyError("Only staff and clinicians can edit patient-facing prep", 403)
+            supplied = payload.get("instructions", payload.get("content", ""))
+            if isinstance(supplied, list):
+                instructions = [str(item).strip() for item in supplied if str(item).strip()]
+            else:
+                instructions = [line.strip() for line in str(supplied).splitlines() if line.strip()]
+            if not instructions:
+                raise PolicyError("Add at least one patient-facing instruction", 422)
+            if not any(item.casefold() == PATIENT_SAFETY_MESSAGE.casefold() for item in instructions):
+                instructions.append(PATIENT_SAFETY_MESSAGE)
+            patient["patient_instructions"] = instructions
+            patient["patient_prep_version"] = int(patient.get("patient_prep_version", 1)) + 1
+            patient["patient_prep_updated_at"] = now_iso()
+            patient["patient_prep_updated_by"] = actor["id"]
+            self._audit(
+                actor,
+                "patient_prep_updated",
+                "patient_prep",
+                patient_id,
+                version=patient["patient_prep_version"],
+                instruction_count=len(instructions),
+                safety_message_enforced=PATIENT_SAFETY_MESSAGE in instructions,
+            )
+            return {
+                "instructions": deepcopy(instructions),
+                "version": patient["patient_prep_version"],
+                "updated_at": patient["patient_prep_updated_at"],
+                "updated_by": patient["patient_prep_updated_by"],
+            }
 
     def resolve_task(self, task_id: str, actor: dict) -> dict:
         with self.lock:
@@ -858,7 +923,17 @@ class CareNoteStore:
             redacted, redaction_counts = redact_phi(supplied)
             if not redacted or any(token in redacted.lower() for token in ["real name", "phone number", "ic number"]):
                 raise PolicyError("Capture must be redacted before AI processing", 422)
-            interaction = "patient" if actor["role"] == "patient" else ("doctor" if actor["role"] == "clinician" else "nurse")
+            requested_interaction = str(payload.get("interaction", "")).strip()
+            if actor["role"] == "patient":
+                if requested_interaction and requested_interaction != "Patient session":
+                    raise PolicyError("Patients can only create a Patient session", 403)
+                interaction = "patient"
+            else:
+                if not requested_interaction:
+                    requested_interaction = "Clinical consult" if actor["role"] == "clinician" else "Nurse consult"
+                if requested_interaction not in {"Clinical consult", "Nurse consult"}:
+                    raise PolicyError("Clinical users can only create a Clinical consult or Nurse consult", 403)
+                interaction = "doctor" if requested_interaction == "Clinical consult" else "nurse"
             entry = self._add_entry(
                 {
                     "patient_id": patient_id,
@@ -887,7 +962,13 @@ class CareNoteStore:
             if actor["role"] not in {"clinician", "admin"}:
                 raise PolicyError("Audit view is restricted to clinical oversight", 403)
             ids = {entry_id for entry_id, entry in self.entries.items() if entry["patient_id"] == patient_id}
-            return [deepcopy(item) for item in self.audit_log if item["entity_id"] in ids or item["metadata"].get("entry_id") in ids]
+            return [
+                deepcopy(item)
+                for item in self.audit_log
+                if item["entity_id"] in ids
+                or item["metadata"].get("entry_id") in ids
+                or (item["entity_type"] == "patient_prep" and item["entity_id"] == patient_id)
+            ]
 
 
 STORE = CareNoteStore()
@@ -1009,6 +1090,9 @@ class CareNoteHandler(BaseHTTPRequestHandler):
             match = re.fullmatch(r"/api/entries/([^/]+)", path)
             if match:
                 self.send_json(STORE.update_entry(match.group(1), self.actor(), body))
+                return
+            if path == "/api/patient-prep":
+                self.send_json(STORE.update_patient_prep(PATIENT_ID, self.actor(), body))
                 return
             raise PolicyError("API route not found", 404)
         except Exception as exc:

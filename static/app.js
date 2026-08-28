@@ -6,6 +6,7 @@ const state = {
   focus: null,
   loading: true,
   modalPointerDownOnBackdrop: false,
+  signalExpanded: false,
 };
 
 const ROLE_COPY = {
@@ -26,7 +27,7 @@ function formatDate(value, withTime = true) {
 }
 
 function roleLabel(role) {
-  return ({ system: 'AI scribe', staff: 'Staff', clinician: 'Clinician', patient: 'Patient' }[role] || role);
+  return ({ system: 'AI scribe', staff: 'Staff / nurse', clinician: 'Clinician', patient: 'Patient', admin: 'Admin' }[role] || role);
 }
 
 async function api(path, options = {}) {
@@ -94,7 +95,7 @@ function intro() {
   return `<div class="page-intro">
     <div><div class="eyebrow-main">${copy.eyebrow}</div><h1>${copy.title}</h1><p>${copy.subtitle}</p></div>
     <div class="intro-actions">
-      ${p.can_capture_voice ? '<button class="secondary-button" data-action="voice"><span>◉</span> Capture consult</button>' : ''}
+      ${p.can_capture_voice ? '<button class="secondary-button" data-action="voice"><span>◉</span> Voice Consult Capture</button>' : ''}
       ${state.role !== 'patient' && (p.can_add_staff_note || p.can_add_clinician_note || p.can_add_patient_insight) ? '<button class="primary-button" data-action="compose"><span>＋</span> Add to care note</button>' : ''}
       ${p.can_view_audit ? '<button class="secondary-button" data-action="audit"><span>≡</span> Audit trail</button>' : ''}
     </div>
@@ -105,6 +106,7 @@ function renderClinicalGlance() {
   const highlights = state.data.highlights;
   const top = highlights[0];
   const openTasks = state.data.tasks.filter((task) => task.status === 'open');
+  const visibleHighlights = state.signalExpanded ? highlights : highlights.slice(0, 3);
   return `<section class="glance-grid">
     <article class="card glance-card">
       <div class="card-head"><div class="card-title"><span class="spark">✦</span> What matters now</div><span class="card-subtle">10-second view</span></div>
@@ -114,19 +116,17 @@ function renderClinicalGlance() {
         <p>${escapeHtml(top.risk_reason)} This is linked to a source span, not a free-floating AI claim.</p>
         <div class="primary-footer"><span></span>${escapeHtml(top.source_label)} <button class="text-button" data-jump-entry="${escapeHtml(top.entry_id)}" data-jump-quote="${escapeHtml(top.provenance_pointer.quote)}">Open source ↗</button></div>
       </div><div class="delta-strip"><div><small>Since last review</small><strong>BP still above target</strong></div><div><small>New context</small><strong>2 doses missed</strong></div><div><small>Waiting on</small><strong>ECG confirmation</strong></div></div>` : '<div class="empty-state">No attention signal is available for this role view.</div>'}
-      <div class="highlight-list">${highlights.slice(0, 3).map((highlight, index) => renderHighlight(highlight, index + 1)).join('')}</div>
+      <div class="highlight-list">${visibleHighlights.map((highlight, index) => renderHighlight(highlight, index + 1)).join('')}</div>
+      ${highlights.length > 3 ? `<button class="signal-more" data-action="toggle-signals" aria-expanded="${state.signalExpanded}">${state.signalExpanded ? 'Show fewer signals' : `See more · ${highlights.length - 3} more`} <span aria-hidden="true">${state.signalExpanded ? '⌃' : '⌄'}</span></button>` : ''}
     </article>
     <article class="card task-card"><div class="card-head"><div class="card-title"><span class="spark">⌁</span> Open loops</div><span class="card-subtle">${openTasks.length} to close</span></div>
       <div class="task-list">${state.data.tasks.map(renderTask).join('') || '<div class="empty-state">Nothing waiting here.</div>'}<div class="task-summary"><span>Care-team momentum</span><strong>${state.data.tasks.length - openTasks.length}/${state.data.tasks.length || 0}</strong></div></div>
     </article>
-    <article class="card trust-card"><div class="card-head"><div class="card-title"><span class="spark">⌘</span> Trust ledger</div><span class="card-subtle">Why this surfaced</span></div>
-      <div class="trust-body"><div class="trust-callout"><strong>Human judgment stays in the loop</strong><p>${escapeHtml(state.data.learning.message)}</p></div>
-        <div class="trust-rule"><span class="rule-check">✓</span><div><strong>Safety floors</strong><small>Chest symptoms, allergies and unresolved actions cannot be learned away.</small></div></div>
-        <div class="trust-rule"><span class="rule-check">✓</span><div><strong>Evidence-linked</strong><small>Every suggestion carries a source entry, exact span and short reason.</small></div></div>
-        <div class="trust-rule"><span class="rule-check">✓</span><div><strong>Learning signal</strong><small>${state.data.learning.accepted_count} accepted pattern${state.data.learning.accepted_count === 1 ? '' : 's'}; no silent auto-publishing.</small></div></div>
-      </div>
-    </article>
   </section>`;
+}
+
+function renderTrustLedger() {
+  return `<section class="trust-ledger-text" aria-label="Trust ledger"><div class="trust-ledger-title">Trust ledger · why this surfaced</div><span><strong>Safety floors:</strong> chest symptoms, allergies and unresolved actions cannot be learned away.</span><span><strong>Evidence-linked:</strong> every suggestion carries a source entry, exact span and short reason.</span><span><strong>Learning signal:</strong> ${state.data.learning.accepted_count} accepted pattern${state.data.learning.accepted_count === 1 ? '' : 's'}; no silent auto-publishing.</span><em>${escapeHtml(state.data.learning.message)}</em></section>`;
 }
 
 function renderPatientGlance() {
@@ -136,7 +136,7 @@ function renderPatientGlance() {
   const openTasks = tasks.filter((task) => task.status === 'open');
   const current = openTasks[0];
   return `<section class="patient-dashboard">
-    <article class="card patient-next-action"><div class="patient-section-label">YOUR NEXT STEP</div><h2>${current ? escapeHtml(current.title) : 'You are all caught up'}</h2><p>${current ? 'This is the clearest action your care team has asked you to keep in view.' : 'There are no open patient actions right now.'}</p><div class="patient-appointment"><span class="calendar-mark">07</span><div><strong>${escapeHtml(patient.next_appointment)}</strong><small>Harbour Clinic · bring your home BP log</small></div></div><div class="patient-action-note"><span>↳</span><div><strong>What to prepare</strong><small>${escapeHtml(instructions[0] || 'Bring any questions you want to discuss.')}</small></div></div></article>
+    <article class="card patient-next-action"><div class="patient-section-label">YOUR NEXT STEP</div><h2>${current ? escapeHtml(current.title) : 'You are all caught up'}</h2><p>${current ? 'This is the clearest action your care team has asked you to keep in view.' : 'There are no open patient actions right now.'}</p><div class="patient-appointment"><span class="calendar-mark">07</span><div><strong>${escapeHtml(patient.next_appointment)}</strong><small>Harbour Clinic · bring your home BP log</small></div></div><div class="patient-action-note"><span>↳</span><div><strong>What to prepare</strong><ul>${(instructions.length ? instructions : ['Bring any questions you want to discuss.']).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div></div></article>
     <article class="card patient-tasks"><div class="patient-card-head"><div><div class="patient-section-label">YOUR TASKS</div><h3>Keep the visit moving</h3></div><span class="task-count-pill">${openTasks.length} open</span></div><div class="patient-task-list">${tasks.map(renderPatientTask).join('') || '<div class="empty-state">No tasks have been shared yet.</div>'}</div><div class="patient-approval-note">◌ These tasks come from your care team and your own shared updates.</div></article>
   </section>`;
 }
@@ -147,9 +147,14 @@ function renderPatientTask(task) {
 
 function renderHighlight(highlight, index) {
   const status = highlight.status;
+  const corroboration = highlight.source_count > 1 ? `<span>· ${highlight.source_count} sources</span>` : '';
+  const decided = status === 'accepted' || status === 'rejected';
+  const decisionUi = !decided
+    ? (state.role !== 'admin' ? `<div class="decision-buttons"><button class="mini-decision" data-decision="accepted" data-highlight="${escapeHtml(highlight.id)}">Keep</button><button class="mini-decision" data-decision="rejected" data-highlight="${escapeHtml(highlight.id)}">Dismiss</button></div>` : '<span class="approval-badge decision-pending">In progress</span>')
+    : `<div class="decision-status"><span class="approval-badge ${status === 'accepted' ? 'approved' : ''}">${status === 'accepted' ? '✓ kept' : 'dismissed'}</span>${state.role !== 'admin' ? `<button class="mini-decision" data-decision="undecided" data-highlight="${escapeHtml(highlight.id)}">Change</button>` : ''}</div>`;
   return `<div class="highlight-row" data-highlight-id="${escapeHtml(highlight.id)}">
-    <span class="highlight-number">0${index}</span><div><h4>${escapeHtml(highlight.title)} <span class="role-badge ${highlight.source_type.includes('ai_') ? 'ai' : 'clinician'}">${highlight.source_type.includes('ai_') ? 'AI' : 'note'}</span></h4><p>${escapeHtml(highlight.risk_reason)}</p><div class="highlight-meta"><span class="score-track"><i style="width:${highlight.importance_score}%"></i></span><span>${highlight.importance_score}</span><span>·</span><button class="source-link" data-jump-entry="${escapeHtml(highlight.entry_id)}" data-jump-quote="${escapeHtml(highlight.provenance_pointer.quote)}">${escapeHtml(highlight.source_label)}</button></div></div>
-    <div>${status === 'suggested' && state.role !== 'admin' ? `<div class="decision-buttons"><button class="mini-decision" data-decision="accepted" data-highlight="${escapeHtml(highlight.id)}">Keep</button><button class="mini-decision" data-decision="rejected" data-highlight="${escapeHtml(highlight.id)}">Dismiss</button></div>` : `<span class="approval-badge ${status === 'accepted' ? 'approved' : ''}">${status === 'accepted' ? '✓ kept' : 'dismissed'}</span>`}</div>
+    <span class="highlight-number">0${index}</span><div><h4>${escapeHtml(highlight.title)} <span class="role-badge ${highlight.source_type.includes('ai_') ? 'ai' : 'clinician'}">${highlight.source_type.includes('ai_') ? 'AI' : 'note'}</span></h4><p>${escapeHtml(highlight.risk_reason)}</p><div class="highlight-meta"><span class="score-track"><i style="width:${highlight.importance_score}%"></i></span><span>${highlight.importance_score}</span><span>·</span><button class="source-link" data-jump-entry="${escapeHtml(highlight.entry_id)}" data-jump-quote="${escapeHtml(highlight.provenance_pointer.quote)}">${escapeHtml(highlight.source_label)}</button>${corroboration}</div></div>
+    <div>${decisionUi}</div>
   </div>`;
 }
 
@@ -168,6 +173,7 @@ function renderContent(entry) {
 function filteredTimeline() {
   const items = state.data.timeline || [];
   if (state.filter === 'all') return items;
+  if (state.filter === 'approved') return items.filter((entry) => entry.patient_visible && entry.patient_approved);
   if (state.filter === 'ai') return items.filter((entry) => entry.author_role === 'system' && entry.type.includes('ai_'));
   if (state.filter === 'notes') return items.filter((entry) => ['staff', 'clinician', 'patient'].includes(entry.author_role));
   return items.filter((entry) => entry.author_role === 'system' && !entry.type.includes('ai_'));
@@ -193,23 +199,33 @@ function renderEntry(entry) {
 
 function renderTimeline() {
   const entries = filteredTimeline();
+  const tabs = state.role === 'patient'
+    ? [['all', 'All context'], ['approved', 'Human-approved notes'], ['activity', 'System activity']]
+    : [['all', 'All context'], ['ai', 'AI-scribed'], ['notes', 'Human notes'], ['activity', 'System activity']];
   return `<section class="card timeline-card" id="timeline">
     <div class="timeline-head"><div><h2>Longitudinal timeline</h2><p>One continuous story · ${state.data.timeline.length} entries · provenance stays attached</p></div><button class="secondary-button" data-action="info">What is shown?</button></div>
-    <div class="timeline-tabs">${[['all', 'All context'], ['ai', 'AI-scribed'], ['notes', 'Human notes'], ['activity', 'System activity']].map(([key, label]) => `<button class="timeline-tab ${state.filter === key ? 'active' : ''}" data-filter="${key}">${label}</button>`).join('')}</div>
+    <div class="timeline-tabs">${tabs.map(([key, label]) => `<button class="timeline-tab ${state.filter === key ? 'active' : ''}" data-filter="${key}">${label}</button>`).join('')}</div>
     <div class="entry-list">${entries.length ? entries.map(renderEntry).join('') : '<div class="empty-state">No entries in this view.</div>'}</div>
   </section>`;
 }
 
 function renderSideRail() {
   const patient = state.data.patient;
+  const canEditPrep = state.role === 'staff' || state.role === 'clinician';
+  const prepMeta = patient.patient_prep_updated_at ? `Updated ${formatDate(patient.patient_prep_updated_at, false)} · v${patient.patient_prep_version || 1}` : 'Shared patient instructions';
   return `<aside class="side-stack ${state.role === 'patient' ? 'patient-side-stack' : ''}">
     <article class="card side-card"><h3>Care team</h3><p>Small handoffs are visible; internal comments stay role-scoped.</p>
       <div class="team-row"><span class="avatar avatar-navy">AP</span><div><strong>Dr. Arjun Patel</strong><small>Clinician · owner of plan</small></div><span class="team-status">online</span></div>
       <div class="team-row"><span class="avatar avatar-teal">LO</span><div><strong>Lena Ortiz, RN</strong><small>Staff · follow-up owner</small></div><span class="team-status">today</span></div>
       <div class="team-row"><span class="avatar avatar-yellow">MC</span><div><strong>${escapeHtml(patient.name)}</strong><small>Patient · shared insights</small></div><span class="team-status">portal</span></div>
     </article>
-    ${state.role !== 'patient' ? `<article class="card side-card"><h3>Signal hygiene</h3><p>Numbers explain attention, never replace clinical judgment.</p><div class="metric-band"><div class="metric-box"><strong>${state.data.warm_path_ms}ms</strong><small>warm glance path</small></div><div class="metric-box"><strong>100%</strong><small>source-linked signals</small></div></div><div class="structured-snapshot"><div><span>Blood pressure</span><strong>149 / 92</strong><em>above target</em></div><div><span>Allergy</span><strong>Penicillin</strong><em class="verified-text">verified</em></div></div><div class="safety-list"><div class="safety-item"><b>↳</b><span>High-risk phrases get a deterministic floor.</span></div><div class="safety-item"><b>↳</b><span>Medium confidence means “review,” not “safe.”</span></div><div class="safety-item"><b>↳</b><span>Patient copy requires an approved human surface.</span></div></div></article><article class="card side-card"><h3>Patient-ready prep</h3><p>Make the next visit shorter before it starts.</p><div class="patient-booklet"><h4>Bring this booklet</h4><ul>${(patient.patient_instructions || []).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div></article>` : ''}
+    ${state.role !== 'patient' ? `<article class="card side-card"><h3>Signal hygiene</h3><p>Numbers explain attention, never replace clinical judgment.</p><div class="metric-band"><div class="metric-box"><strong>${state.data.warm_path_ms}ms</strong><small>warm glance path</small></div><div class="metric-box"><strong>100%</strong><small>source-linked signals</small></div></div><div class="structured-snapshot"><div><span>Blood pressure</span><strong>149 / 92</strong><em>above target</em></div><div><span>Allergy</span><strong>Penicillin</strong><em class="verified-text">verified</em></div></div><div class="safety-list"><div class="safety-item"><b>↳</b><span>High-risk phrases get a deterministic floor.</span></div><div class="safety-item"><b>↳</b><span>Medium confidence means “review,” not “safe.”</span></div><div class="safety-item"><b>↳</b><span>Patient copy requires an approved human surface.</span></div></div></article><article class="card side-card patient-prep-card"><div class="prep-card-head"><h3>Patient-facing prep preview</h3>${canEditPrep ? '<button class="text-button" data-action="edit-prep">✎ Edit</button>' : ''}</div><div class="patient-booklet"><h4>Bring this booklet</h4><ul>${(patient.patient_instructions || []).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div><div class="prep-meta">${escapeHtml(prepMeta)}</div></article>` : ''}
   </aside>`;
+}
+
+function prepModal() {
+  const instructions = state.data.patient.patient_instructions || [];
+  openModal(`<div class="modal-head"><div><h2>Edit patient-facing prep</h2><p>These instructions are synchronized to the patient’s next-step surface.</p></div><button class="modal-close" data-close-modal>×</button></div><form class="modal-body form-grid" id="prep-form"><label class="form-label">Instructions<textarea name="instructions" required>${escapeHtml(instructions.join('\n'))}</textarea></label><div class="form-hint">Use one instruction per line. The safety message “If chest pain returns, seek urgent care rather than waiting for a message.” is always kept on the patient-facing surface.</div><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancel</button><button class="primary-button">Save prep</button></div></form>`);
 }
 
 function render() {
@@ -235,7 +251,7 @@ function render() {
     workspace.innerHTML = '<div class="card empty-state" style="margin-top:40px">Opening the shared care note…</div>';
     return;
   }
-  workspace.innerHTML = `${intro()}${patientHeader()}${state.role === 'patient' ? renderPatientGlance() : renderClinicalGlance()}<div class="content-grid">${renderTimeline()}${renderSideRail()}</div>`;
+  workspace.innerHTML = `${intro()}${patientHeader()}${state.role === 'patient' ? renderPatientGlance() : renderClinicalGlance()}<div class="content-grid">${renderTimeline()}${renderSideRail()}</div>${state.role !== 'patient' ? renderTrustLedger() : ''}`;
 }
 
 function openModal(content, wide = false) {
@@ -297,7 +313,10 @@ function auditModal() {
 }
 
 function voiceModal() {
-  openModal(`<div class="modal-head"><div><h2>Ambient consult capture</h2><p>Consent gate · redact first · then derive a source-linked summary</p></div><button class="modal-close" data-close-modal>×</button></div><div class="modal-body"><div class="voice-step"><span class="step-num">1</span><div><strong>Ask for consent</strong><small>Capture is visible to everyone in this demo; no raw audio is uploaded.</small></div></div><div class="voice-step"><span class="step-num">2</span><div><strong>Redact before model processing</strong><small>Names, ID numbers and phones are blocked at the server boundary.</small></div></div><div class="voice-step"><span class="step-num">3</span><div><strong>Keep the transcript as provenance</strong><small>A generated summary points back to this redacted source session.</small></div></div><form class="form-grid" id="voice-form" style="margin-top:14px"><label class="form-label">Interaction type<select name="interaction"><option>Clinical consult</option><option>Nurse consult</option><option>Patient session</option></select></label><label class="form-label">Redacted transcript preview<textarea name="redacted_transcript" required>Speaker 1: Maya reports that chest pressure returned once while climbing stairs. Speaker 2: Care team will review the ECG plan; no diagnosis is made in this session.</textarea></label><div class="form-hint">Synthetic demo policy: raw audio is discarded. The server accepts only this redacted transcript field and records <strong>raw_audio_stored = false</strong>.</div><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancel</button><button class="primary-button"><span class="recording-dot"></span> Create redacted summary</button></div></form></div>`);
+  const interactionOptions = state.role === 'patient'
+    ? '<option value="Patient session">Patient session</option>'
+    : '<option value="Clinical consult">Clinical consult</option><option value="Nurse consult">Nurse consult</option>';
+  openModal(`<div class="modal-head"><div><h2>Voice Consult Capture</h2><p>Consent gate · redact first · then derive a source-linked summary</p></div><button class="modal-close" data-close-modal>×</button></div><div class="modal-body"><div class="voice-step"><span class="step-num">1</span><div><strong>Ask for consent</strong><small>Capture is visible to everyone in this demo; no raw audio is uploaded.</small></div></div><div class="voice-step"><span class="step-num">2</span><div><strong>Redact before model processing</strong><small>Names, ID numbers and phones are blocked at the server boundary.</small></div></div><div class="voice-step"><span class="step-num">3</span><div><strong>Keep the transcript as provenance</strong><small>A generated summary points back to this redacted source session.</small></div></div><form class="form-grid" id="voice-form" style="margin-top:14px"><label class="form-label">Interaction type<select name="interaction">${interactionOptions}</select></label><label class="form-label">Redacted transcript preview<textarea name="redacted_transcript" required>Speaker 1: Maya reports that chest pressure returned once while climbing stairs. Speaker 2: Care team will review the ECG plan; no diagnosis is made in this session.</textarea></label><div class="form-hint">Synthetic demo policy: raw audio is discarded. The server accepts only this redacted transcript field and records <strong>raw_audio_stored = false</strong>.</div><div class="modal-actions"><button type="button" class="secondary-button" data-close-modal>Cancel</button><button class="primary-button"><span class="recording-dot"></span> Create redacted summary</button></div></form></div>`);
 }
 
 function infoModal() {
@@ -327,6 +346,12 @@ async function submitComment(form) {
 async function submitVoice(form) {
   const payload = Object.fromEntries(new FormData(form).entries());
   try { await api('/api/voice-sessions', { method: 'POST', body: JSON.stringify(payload) }); closeModal(); await loadCareNote(); showToast('Redacted AI-scribed entry added with provenance.'); }
+  catch (error) { showToast(error.message, true); }
+}
+
+async function submitPrep(form) {
+  const payload = Object.fromEntries(new FormData(form).entries());
+  try { await api('/api/patient-prep', { method: 'PATCH', body: JSON.stringify(payload) }); closeModal(); await loadCareNote(); showToast('Patient-facing prep updated and synchronized.'); }
   catch (error) { showToast(error.message, true); }
 }
 
@@ -364,7 +389,7 @@ document.addEventListener('click', async (event) => {
   if (target.dataset.filter) { state.filter = target.dataset.filter; render(); return; }
   if (target.dataset.jumpEntry) { jumpTo(target.dataset.jumpEntry, target.dataset.jumpQuote || ''); return; }
   if (target.dataset.decision) {
-    try { await api(`/api/highlights/${encodeURIComponent(target.dataset.highlight)}/decision`, { method: 'POST', body: JSON.stringify({ decision: target.dataset.decision }) }); await loadCareNote(); showToast(target.dataset.decision === 'accepted' ? 'Signal kept; the importance model learned from this confirmation.' : 'Signal dismissed for this note.'); }
+    try { await api(`/api/highlights/${encodeURIComponent(target.dataset.highlight)}/decision`, { method: 'POST', body: JSON.stringify({ decision: target.dataset.decision }) }); await loadCareNote(); showToast(target.dataset.decision === 'accepted' ? 'Signal kept; the importance model learned from this confirmation.' : target.dataset.decision === 'rejected' ? 'Signal dismissed for this note.' : 'Decision cleared; the signal is ready to review again.'); }
     catch (error) { showToast(error.message, true); }
     return;
   }
@@ -394,10 +419,12 @@ document.addEventListener('click', async (event) => {
   }
   if (target.dataset.action === 'compose') { composerModal(); return; }
   if (target.dataset.action === 'voice') { voiceModal(); return; }
+  if (target.dataset.action === 'edit-prep') { prepModal(); return; }
+  if (target.dataset.action === 'toggle-signals') { state.signalExpanded = !state.signalExpanded; render(); return; }
   if (target.dataset.action === 'audit') { auditModal(); return; }
   if (target.dataset.action === 'info') { infoModal(); return; }
   if (target.dataset.nav && target.dataset.nav !== 'glance') { showToast(`${target.textContent.trim()} is outside this focused demo.`); return; }
-  if (target.id === 'open-command') { openModal(`<div class="modal-head"><div><h2>Quick actions</h2><p>Keep the next useful action one click away.</p></div><button class="modal-close" data-close-modal>×</button></div><div class="modal-body form-grid"><button class="secondary-button" data-action="compose">＋ Add a note</button><button class="secondary-button" data-action="voice">◉ Capture a redacted consult</button><button class="secondary-button" data-action="info">⌘ Read the trust contract</button></div>`); return; }
+  if (target.id === 'open-command') { openModal(`<div class="modal-head"><div><h2>Quick actions</h2><p>Keep the next useful action one click away.</p></div><button class="modal-close" data-close-modal>×</button></div><div class="modal-body form-grid"><button class="secondary-button" data-action="compose">＋ Add a note</button><button class="secondary-button" data-action="voice">◉ Voice Consult Capture</button><button class="secondary-button" data-action="info">⌘ Read the trust contract</button></div>`); return; }
 });
 
 document.addEventListener('submit', (event) => {
@@ -406,12 +433,13 @@ document.addEventListener('submit', (event) => {
   if (event.target.id === 'edit-form') submitEdit(event.target);
   if (event.target.id === 'comment-form') submitComment(event.target);
   if (event.target.id === 'voice-form') submitVoice(event.target);
+  if (event.target.id === 'prep-form') submitPrep(event.target);
 });
 
 document.getElementById('role-select').addEventListener('change', (event) => {
   state.role = event.target.value;
   localStorage.setItem('nightingale-role', state.role);
-  state.filter = 'all'; state.focus = null;
+  state.filter = 'all'; state.focus = null; state.signalExpanded = false;
   loadCareNote();
 });
 
