@@ -353,3 +353,107 @@ kbd { padding: 2px 5px; border: 1px solid currentColor; border-radius: 4px; opac
   .entry-time { display: none; }
   .delta-strip { grid-template-columns: 1fr; }
 }
+
+/* Readability pass: clinical surfaces should be comfortable at a glance,
+   not merely technically legible. */
+body { font-size: 15px; }
+.sidebar { font-size: 14px; }
+.eyebrow, .sidebar-label, .eyebrow-main { font-size: 11px; }
+.search-box input { font-size: 14px; }
+.nav-item { font-size: 14px; }
+.patient-mini strong { font-size: 13px; }
+.patient-mini small { font-size: 11px; }
+.privacy-pod strong { font-size: 12px; }
+.privacy-pod small, .user-chip small { font-size: 11px; }
+.user-chip strong { font-size: 13px; }
+.breadcrumbs { font-size: 13px; }
+.quiet-button { font-size: 12px; }
+.role-control label { font-size: 11px; }
+.role-control select { font-size: 13px; }
+.page-intro h1 { font-size: 30px; }
+.page-intro p { font-size: 14px; }
+.primary-button, .secondary-button { font-size: 13px; }
+.patient-name h2 { font-size: 19px; }
+.patient-meta { font-size: 13px; }
+.header-stat strong { font-size: 13px; }
+.header-stat small { font-size: 11px; }
+.card-title { font-size: 14px; }
+.card-subtle { font-size: 12px; }
+.priority-label { font-size: 11px; }
+.score-pill { font-size: 12px; }
+.glance-primary h3 { font-size: 20px; }
+.glance-primary p { font-size: 13px; }
+.primary-footer { font-size: 12px; }
+.highlight-row h4 { font-size: 13px; }
+.highlight-row p { font-size: 12px; }
+.highlight-meta { font-size: 11px; }
+.mini-decision { font-size: 11px; }
+.task-item strong { font-size: 12px; }
+.task-item small { font-size: 11px; }
+.owner-tag { font-size: 10px; }
+.task-summary { font-size: 11px; }
+.task-summary strong { font-size: 12px; }
+.trust-callout strong { font-size: 12px; }
+.trust-callout p { font-size: 11px; }
+.trust-rule strong { font-size: 12px; }
+.trust-rule small { font-size: 11px; }
+.timeline-head h2 { font-size: 16px; }
+.timeline-head p { font-size: 12px; }
+.timeline-tab { font-size: 12px; }
+.entry-title h3 { font-size: 14px; }
+.type-badge, .role-badge, .approval-badge { font-size: 10px; }
+.entry-byline { font-size: 11px; }
+.entry-content { font-size: 14px; }
+.entry-tags .tag { font-size: 10px; }
+.ai-disclaimer { font-size: 11px; }
+.entry-action { font-size: 12px; }
+.entry-source { font-size: 10px; }
+.side-card h3 { font-size: 14px; }
+.side-card > p { font-size: 12px; }
+.team-row strong { font-size: 12px; }
+.team-row small { font-size: 11px; }
+.team-row .team-status { font-size: 10px; }
+.metric-box strong { font-size: 18px; }
+.metric-box small, .structured-snapshot span, .structured-snapshot em { font-size: 10px; }
+.structured-snapshot strong { font-size: 11px; }
+.safety-item { font-size: 11px; }
+.patient-booklet h4 { font-size: 12px; }
+.patient-booklet li { font-size: 11px; }
+.patient-input-cta { display: grid; justify-items: end; gap: 6px; }
+.patient-input-cta small { max-width: 235px; color: #83959b; font-size: 11px; line-height: 1.35; text-align: right; }
+.patient-dashboard { display: grid; grid-template-columns: minmax(0,1.1fr) minmax(300px,.9fr); gap: 14px; margin-bottom: 16px; }
+.patient-next-action, .patient-tasks { padding: 22px; }
+.patient-section-label { color: #348678; font: 600 11px 'DM Mono', monospace; letter-spacing: 1.1px; text-transform: uppercase; }
+.patient-next-action h2 { max-width: 620px; margin: 9px 0 7px; color: var(--ink); font: 600 25px/1.2 'Space Grotesk', sans-serif; letter-spacing: -.6px; }
+.patient-next-action > p { max-width: 620px; margin: 0; color: #6b8089; font-size: 14px; line-height: 1.55; }
+.patient-appointment { display: flex; align-items: center; gap: 11px; margin-top: 20px; padding-top: 16px; border-top: 1px solid #edf2f2; }
+.patient-appointment strong, .patient-appointment small { display: block; }
+.patient-appointment strong { font-size: 14px; }
+.patient-appointment small { margin-top: 3px; color: #8e9fa5; font-size: 11px; }
+.patient-action-note { display: flex; align-items: flex-start; gap: 10px; margin-top: 13px; padding: 11px 12px; border-radius: 8px; color: #3f726b; background: #f1faf8; }
+.patient-action-note > span { color: var(--teal); font-size: 17px; }
+.patient-action-note strong, .patient-action-note small { display: block; }
+.patient-action-note strong { font-size: 12px; }
+.patient-action-note small { margin-top: 3px; color: #6c8a89; font-size: 11px; line-height: 1.4; }
+.patient-card-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+.patient-card-head h3 { margin: 7px 0 0; font: 600 18px 'Space Grotesk', sans-serif; }
+.task-count-pill { padding: 5px 8px; border-radius: 12px; color: #287d70; background: var(--teal-soft); font: 11px 'DM Mono', monospace; white-space: nowrap; }
+.patient-task-list { margin-top: 13px; }
+.patient-task { display: grid; grid-template-columns: 24px 1fr auto; align-items: start; gap: 8px; padding: 13px 0; border-top: 1px solid #edf2f2; }
+.patient-task-check { display: flex; align-items: center; justify-content: center; width: 22px; height: 22px; border: 1px solid #bcd8d3; border-radius: 7px; color: #fff; background: var(--teal); font-size: 12px; }
+.patient-task:not(.done) .patient-task-check { color: var(--teal); background: #f5fbfa; }
+.patient-task strong, .patient-task small { display: block; }
+.patient-task strong { font-size: 13px; line-height: 1.35; }
+.patient-task small { margin-top: 4px; color: #87999f; font-size: 11px; line-height: 1.4; }
+.patient-task.done strong { color: #86979d; text-decoration: line-through; }
+.patient-task-status { padding: 4px 6px; border-radius: 5px; color: #287d70; background: #eef8f6; font: 10px 'DM Mono', monospace; text-transform: uppercase; }
+.patient-task.done .patient-task-status { color: #89999f; background: #f3f6f6; }
+.patient-approval-note { margin-top: 10px; color: #9aa9af; font-size: 11px; }
+
+@media (max-width: 800px) {
+  .patient-header-patient { grid-template-columns: auto 1fr; }
+  .patient-input-cta { grid-column: span 2; justify-items: start; padding-top: 9px; border-top: 1px solid var(--line); }
+  .patient-input-cta small { max-width: none; text-align: left; }
+  .patient-dashboard { grid-template-columns: 1fr; }
+  .patient-next-action h2 { font-size: 22px; }
+}
