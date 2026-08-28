@@ -55,6 +55,13 @@ class RBACScopeTests(unittest.TestCase):
         patient_ids = {entry["id"] for entry in self.store.timeline(PATIENT_ID, self.patient)}
         self.assertIn(entry_id, patient_ids)
 
+    def test_patient_task_surface_includes_shared_request_and_completed_item(self):
+        tasks = self.store.tasks_for(PATIENT_ID, self.patient)
+        task_ids = {task["id"] for task in tasks}
+        self.assertIn("task-ecg", task_ids)
+        self.assertIn("task-med-list", task_ids)
+        self.assertEqual(next(task for task in tasks if task["id"] == "task-med-list")["status"], "done")
+
 
 if __name__ == "__main__":
     unittest.main()

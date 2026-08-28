@@ -322,10 +322,12 @@ class CareNoteStore:
                     "id": "task-ecg",
                     "patient_id": PATIENT_ID,
                     "title": "Confirm ECG order before arrival",
+                    "patient_title": "Complete the ECG before tomorrow’s review",
                     "owner_role": "clinician",
                     "owner_name": "Dr. Patel",
                     "status": "open",
                     "due": "Today",
+                    "patient_visible": True,
                     "source_entry_id": "ent-staff-feb06",
                     "created_at": "2026-02-06T18:35:00+08:00",
                 },
@@ -337,8 +339,21 @@ class CareNoteStore:
                     "owner_name": "Maya",
                     "status": "open",
                     "due": "Tomorrow",
+                    "patient_visible": True,
                     "source_entry_id": "ent-patient-prep",
                     "created_at": "2026-02-07T08:00:00+08:00",
+                },
+                "task-med-list": {
+                    "id": "task-med-list",
+                    "patient_id": PATIENT_ID,
+                    "title": "Upload current medication list",
+                    "owner_role": "patient",
+                    "owner_name": "Maya",
+                    "status": "done",
+                    "due": "Completed today",
+                    "patient_visible": True,
+                    "source_entry_id": "ent-patient-prep",
+                    "created_at": "2026-02-07T08:05:00+08:00",
                 },
                 "task-nurse-followup": {
                     "id": "task-nurse-followup",
@@ -475,8 +490,12 @@ class CareNoteStore:
             for task in self.tasks.values():
                 if task["patient_id"] != patient_id:
                     continue
-                if actor["role"] == "patient" and task["owner_role"] != "patient":
-                    continue
+                if actor["role"] == "patient":
+                    if not task.get("patient_visible"):
+                        continue
+                    task = deepcopy(task)
+                    task["title"] = task.get("patient_title", task["title"])
+                    task["owner_role"] = "patient" if task["owner_role"] == "patient" else "care_team"
                 results.append(deepcopy(task))
             return sorted(results, key=lambda item: (item["status"] != "open", item["due"]))
 
