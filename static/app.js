@@ -5,6 +5,7 @@ const state = {
   modal: null,
   focus: null,
   loading: true,
+  modalPointerDownOnBackdrop: false,
 };
 
 const ROLE_COPY = {
@@ -66,6 +67,13 @@ function showToast(message, error = false) {
 
 function patientHeader() {
   const patient = state.data.patient;
+  if (state.role === 'patient') {
+    return `<section class="patient-header patient-header-patient">
+      <span class="avatar avatar-teal">${escapeHtml(patient.initials)}</span>
+      <div><div class="patient-name"><h2>${escapeHtml(patient.name)}</h2><span class="verified-chip">✓ identity matched</span></div><div class="patient-meta">${patient.age} years · ${escapeHtml(patient.pronouns)} <span>•</span> ${escapeHtml(patient.mrn_masked)} <span>•</span> ${patient.conditions.map(escapeHtml).join(' · ')}</div></div>
+      <div class="patient-input-cta"><button class="primary-button" data-action="compose"><span>＋</span> Upload your update</button><small>When your care team asks for input, upload it here.</small></div>
+    </section>`;
+  }
   return `<section class="patient-header">
     <span class="avatar avatar-teal">${escapeHtml(patient.initials)}</span>
     <div>
@@ -87,7 +95,7 @@ function intro() {
     <div><div class="eyebrow-main">${copy.eyebrow}</div><h1>${copy.title}</h1><p>${copy.subtitle}</p></div>
     <div class="intro-actions">
       ${p.can_capture_voice ? '<button class="secondary-button" data-action="voice"><span>◉</span> Capture consult</button>' : ''}
-      ${p.can_add_staff_note || p.can_add_clinician_note || p.can_add_patient_insight ? '<button class="primary-button" data-action="compose"><span>＋</span> Add to care note</button>' : ''}
+      ${state.role !== 'patient' && (p.can_add_staff_note || p.can_add_clinician_note || p.can_add_patient_insight) ? '<button class="primary-button" data-action="compose"><span>＋</span> Add to care note</button>' : ''}
       ${p.can_view_audit ? '<button class="secondary-button" data-action="audit"><span>≡</span> Audit trail</button>' : ''}
     </div>
   </div>`;
@@ -124,10 +132,17 @@ function renderClinicalGlance() {
 function renderPatientGlance() {
   const patient = state.data.patient;
   const instructions = patient.patient_instructions || [];
-  return `<section class="patient-glance">
-    <article class="patient-welcome"><div class="eyebrow-main" style="color:#a7e4d9">SHARED WITH YOU</div><h2>Hi ${escapeHtml(patient.name.split(' ')[0])}, here is what to bring forward.</h2><p>${escapeHtml(patient.patient_summary)}</p><span class="gentle-note">◌ This page shows care-team approved updates only</span></article>
-    <article class="card patient-next"><h3>Your next step</h3><div class="next-date"><span class="calendar-mark">07</span><div><strong>${escapeHtml(patient.next_appointment)}</strong><small>Harbour Clinic · bring your BP log</small></div></div><div class="patient-booklet" style="margin-top:14px"><h4>Visit prep booklet</h4><ul>${instructions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul></div></article>
+  const tasks = state.data.tasks || [];
+  const openTasks = tasks.filter((task) => task.status === 'open');
+  const current = openTasks[0];
+  return `<section class="patient-dashboard">
+    <article class="card patient-next-action"><div class="patient-section-label">YOUR NEXT STEP</div><h2>${current ? escapeHtml(current.title) : 'You are all caught up'}</h2><p>${current ? 'This is the clearest action your care team has asked you to keep in view.' : 'There are no open patient actions right now.'}</p><div class="patient-appointment"><span class="calendar-mark">07</span><div><strong>${escapeHtml(patient.next_appointment)}</strong><small>Harbour Clinic · bring your home BP log</small></div></div><div class="patient-action-note"><span>↳</span><div><strong>What to prepare</strong><small>${escapeHtml(instructions[0] || 'Bring any questions you want to discuss.')}</small></div></div></article>
+    <article class="card patient-tasks"><div class="patient-card-head"><div><div class="patient-section-label">YOUR TASKS</div><h3>Keep the visit moving</h3></div><span class="task-count-pill">${openTasks.length} open</span></div><div class="patient-task-list">${tasks.map(renderPatientTask).join('') || '<div class="empty-state">No tasks have been shared yet.</div>'}</div><div class="patient-approval-note">◌ These tasks come from your care team and your own shared updates.</div></article>
   </section>`;
+}
+
+function renderPatientTask(task) {
+  return `<div class="patient-task ${task.status === 'done' ? 'done' : ''}"><span class="patient-task-check">${task.status === 'done' ? '✓' : '○'}</span><div><strong>${escapeHtml(task.title)}</strong><small>${escapeHtml(task.status === 'done' ? 'Completed · ' + task.owner_name : 'Requested by ' + task.owner_name + ' · ' + task.due)}</small></div><span class="patient-task-status">${task.status === 'done' ? 'Done' : 'Next'}</span></div>`;
 }
 
 function renderHighlight(highlight, index) {
@@ -187,14 +202,13 @@ function renderTimeline() {
 
 function renderSideRail() {
   const patient = state.data.patient;
-  return `<aside class="side-stack">
+  return `<aside class="side-stack ${state.role === 'patient' ? 'patient-side-stack' : ''}">
     <article class="card side-card"><h3>Care team</h3><p>Small handoffs are visible; internal comments stay role-scoped.</p>
       <div class="team-row"><span class="avatar avatar-navy">AP</span><div><strong>Dr. Arjun Patel</strong><small>Clinician · owner of plan</small></div><span class="team-status">online</span></div>
       <div class="team-row"><span class="avatar avatar-teal">LO</span><div><strong>Lena Ortiz, RN</strong><small>Staff · follow-up owner</small></div><span class="team-status">today</span></div>
       <div class="team-row"><span class="avatar avatar-yellow">MC</span><div><strong>${escapeHtml(patient.name)}</strong><small>Patient · shared insights</small></div><span class="team-status">portal</span></div>
     </article>
-    <article class="card side-card"><h3>Signal hygiene</h3><p>Numbers explain attention, never replace clinical judgment.</p><div class="metric-band"><div class="metric-box"><strong>${state.data.warm_path_ms}ms</strong><small>warm glance path</small></div><div class="metric-box"><strong>100%</strong><small>source-linked signals</small></div></div><div class="structured-snapshot"><div><span>Blood pressure</span><strong>149 / 92</strong><em>above target</em></div><div><span>Allergy</span><strong>Penicillin</strong><em class="verified-text">verified</em></div></div><div class="safety-list"><div class="safety-item"><b>↳</b><span>High-risk phrases get a deterministic floor.</span></div><div class="safety-item"><b>↳</b><span>Medium confidence means “review,” not “safe.”</span></div><div class="safety-item"><b>↳</b><span>Patient copy requires an approved human surface.</span></div></div></article>
-    <article class="card side-card"><h3>Patient-ready prep</h3><p>Make the next visit shorter before it starts.</p><div class="patient-booklet"><h4>Bring this booklet</h4><ul>${(patient.patient_instructions || []).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div></article>
+    ${state.role !== 'patient' ? `<article class="card side-card"><h3>Signal hygiene</h3><p>Numbers explain attention, never replace clinical judgment.</p><div class="metric-band"><div class="metric-box"><strong>${state.data.warm_path_ms}ms</strong><small>warm glance path</small></div><div class="metric-box"><strong>100%</strong><small>source-linked signals</small></div></div><div class="structured-snapshot"><div><span>Blood pressure</span><strong>149 / 92</strong><em>above target</em></div><div><span>Allergy</span><strong>Penicillin</strong><em class="verified-text">verified</em></div></div><div class="safety-list"><div class="safety-item"><b>↳</b><span>High-risk phrases get a deterministic floor.</span></div><div class="safety-item"><b>↳</b><span>Medium confidence means “review,” not “safe.”</span></div><div class="safety-item"><b>↳</b><span>Patient copy requires an approved human surface.</span></div></div></article><article class="card side-card"><h3>Patient-ready prep</h3><p>Make the next visit shorter before it starts.</p><div class="patient-booklet"><h4>Bring this booklet</h4><ul>${(patient.patient_instructions || []).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div></article>` : ''}
   </aside>`;
 }
 
@@ -231,6 +245,7 @@ function openModal(content, wide = false) {
 
 function closeModal() {
   state.modal = null;
+  state.modalPointerDownOnBackdrop = false;
   document.getElementById('modal-root').innerHTML = '';
 }
 
@@ -325,11 +340,24 @@ async function jumpTo(entryId, quote = '') {
   });
 }
 
+document.addEventListener('pointerdown', (event) => {
+  state.modalPointerDownOnBackdrop = event.target instanceof Element && event.target.classList.contains('modal-backdrop');
+});
+
+document.addEventListener('pointerup', (event) => {
+  const releasedOnBackdrop = event.target instanceof Element && event.target.classList.contains('modal-backdrop');
+  if (state.modalPointerDownOnBackdrop && releasedOnBackdrop) closeModal();
+  state.modalPointerDownOnBackdrop = false;
+});
+
+document.addEventListener('pointercancel', () => {
+  state.modalPointerDownOnBackdrop = false;
+});
+
 document.addEventListener('click', async (event) => {
-  // Only the backdrop itself dismisses a modal. Using closest() with the
-  // backdrop as a selector made every click inside the dialog look like a
-  // backdrop click, which broke selects, textareas, and form submission.
-  if (event.target instanceof Element && event.target.classList.contains('modal-backdrop')) { closeModal(); return; }
+  // Backdrop dismissal is handled by the pointer down/up pair above. Do not
+  // infer dismissal from click's final target: dragging from inside the modal
+  // and releasing outside produces a backdrop-targeted click in some browsers.
   const target = event.target.closest('button');
   if (!target) return;
   if (target.hasAttribute('data-close-modal')) { closeModal(); return; }
