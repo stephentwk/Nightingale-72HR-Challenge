@@ -140,6 +140,7 @@ kbd { padding: 2px 5px; border: 1px solid currentColor; border-radius: 4px; opac
 .delta-strip small { color: #9aa9af; font: 9px 'DM Mono', monospace; }
 .delta-strip strong { margin-top: 4px; color: #4d6973; font-size: 9px; font-weight: 600; line-height: 1.3; }
 .highlight-list { padding: 0 13px 12px; }
+.signal-list-heading { margin: 0 15px; padding: 11px 0 2px; color: #506a73; font: 600 11px 'DM Mono', monospace; letter-spacing: .8px; text-transform: uppercase; }
 .highlight-row { display: grid; grid-template-columns: 27px 1fr auto; gap: 9px; align-items: start; padding: 10px 2px; border-top: 1px solid #f0f3f4; }
 .highlight-number { display: flex; align-items: center; justify-content: center; width: 25px; height: 25px; border-radius: 7px; color: #b57936; background: var(--yellow-soft); font: 600 10px 'DM Mono', monospace; }
 .highlight-row h4 { margin: 0 0 2px; font-size: 11px; font-weight: 600; }
@@ -468,6 +469,23 @@ body { font-size: 15px; }
 .patient-action-note ul { margin: 4px 0 0; padding-left: 17px; }
 .patient-action-note li { margin: 4px 0; color: #6c8a89; font-size: 11px; line-height: 1.45; }
 
+/* Make the three clinical glance surfaces read as primary work areas, while
+   keeping the prep card's internal hierarchy easy to scan. */
+.glance-grid > .card .card-title { font-size: 16px; }
+.glance-grid > .card .card-title .spark { font-size: 18px; }
+.glance-card .glance-primary h3 { font-size: 23px; }
+.signal-list-heading { font-size: 12px; }
+.task-card .card-subtle { font-size: 13px; }
+.task-item strong { font-size: 13px; }
+.task-item small { font-size: 12px; }
+.patient-prep-card .prep-card-head h3 { font-size: 16px; }
+.patient-prep-card .patient-booklet h4 { margin-bottom: 9px; font-size: 15px; }
+.patient-prep-card .patient-booklet li { font-size: 12px; line-height: 1.5; }
+.patient-prep-card .prep-meta { font-size: 11px; }
+.patient-prep-card { align-self: start; padding: 15px; }
+.prep-sync-note { display: flex; align-items: center; gap: 6px; margin-top: 11px; color: #51867e; font-size: 11px; line-height: 1.4; }
+.prep-sync-note span { color: var(--teal); font-size: 14px; }
+
 @media (max-width: 800px) {
   .patient-header-patient { grid-template-columns: auto 1fr; }
   .patient-input-cta { grid-column: span 2; justify-items: start; padding-top: 9px; border-top: 1px solid var(--line); }
@@ -476,4 +494,5 @@ body { font-size: 15px; }
   .patient-next-action h2 { font-size: 22px; }
   .trust-ledger-text { display: block; }
   .trust-ledger-text > * { display: block; margin-top: 5px; }
+  .patient-prep-card .prep-card-head h3 { white-space: normal; }
 }

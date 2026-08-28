@@ -109,24 +109,33 @@ function renderClinicalGlance() {
   const visibleHighlights = state.signalExpanded ? highlights : highlights.slice(0, 3);
   return `<section class="glance-grid">
     <article class="card glance-card">
-      <div class="card-head"><div class="card-title"><span class="spark">✦</span> What matters now</div><span class="card-subtle">10-second view</span></div>
+      <div class="card-head"><div class="card-title"><span class="spark">✦</span> TOP CARD · What matters now</div></div>
       ${top ? `<div class="glance-primary">
         <div class="priority-row"><span class="priority-label"><i></i> Priority signal · ${escapeHtml(top.risk_level)} risk</span><span class="score-pill">${top.importance_score} / 100</span></div>
         <h3>${escapeHtml(top.title)} needs human review</h3>
         <p>${escapeHtml(top.risk_reason)} This is linked to a source span, not a free-floating AI claim.</p>
         <div class="primary-footer"><span></span>${escapeHtml(top.source_label)} <button class="text-button" data-jump-entry="${escapeHtml(top.entry_id)}" data-jump-quote="${escapeHtml(top.provenance_pointer.quote)}">Open source ↗</button></div>
       </div><div class="delta-strip"><div><small>Since last review</small><strong>BP still above target</strong></div><div><small>New context</small><strong>2 doses missed</strong></div><div><small>Waiting on</small><strong>ECG confirmation</strong></div></div>` : '<div class="empty-state">No attention signal is available for this role view.</div>'}
+      <div class="signal-list-heading">Signal Priority List</div>
       <div class="highlight-list">${visibleHighlights.map((highlight, index) => renderHighlight(highlight, index + 1)).join('')}</div>
       ${highlights.length > 3 ? `<button class="signal-more" data-action="toggle-signals" aria-expanded="${state.signalExpanded}">${state.signalExpanded ? 'Show fewer signals' : `See more · ${highlights.length - 3} more`} <span aria-hidden="true">${state.signalExpanded ? '⌃' : '⌄'}</span></button>` : ''}
     </article>
     <article class="card task-card"><div class="card-head"><div class="card-title"><span class="spark">⌁</span> Open loops</div><span class="card-subtle">${openTasks.length} to close</span></div>
       <div class="task-list">${state.data.tasks.map(renderTask).join('') || '<div class="empty-state">Nothing waiting here.</div>'}<div class="task-summary"><span>Care-team momentum</span><strong>${state.data.tasks.length - openTasks.length}/${state.data.tasks.length || 0}</strong></div></div>
     </article>
+    ${renderPatientPrepCard()}
   </section>`;
 }
 
 function renderTrustLedger() {
-  return `<section class="trust-ledger-text" aria-label="Trust ledger"><div class="trust-ledger-title">Trust ledger · why this surfaced</div><span><strong>Safety floors:</strong> chest symptoms, allergies and unresolved actions cannot be learned away.</span><span><strong>Evidence-linked:</strong> every suggestion carries a source entry, exact span and short reason.</span><span><strong>Learning signal:</strong> ${state.data.learning.accepted_count} accepted pattern${state.data.learning.accepted_count === 1 ? '' : 's'}; no silent auto-publishing.</span><em>${escapeHtml(state.data.learning.message)}</em></section>`;
+  return `<section class="trust-ledger-text" aria-label="Trust ledger"><div class="trust-ledger-title">Trust ledger · why this surfaced</div><span><strong>Safety floors:</strong> chest symptoms, allergies and unresolved actions cannot be learned away.</span><span><strong>Evidence-linked:</strong> every suggestion carries a source entry, exact span and short reason.</span><span><strong>Confidence:</strong> a review reference, never clearance to skip follow-up.</span><span><strong>Learning signal:</strong> ${state.data.learning.accepted_count} accepted pattern${state.data.learning.accepted_count === 1 ? '' : 's'}; no silent auto-publishing.</span><em>${escapeHtml(state.data.learning.message)}</em></section>`;
+}
+
+function renderPatientPrepCard() {
+  const patient = state.data.patient;
+  const canEditPrep = state.role === 'staff' || state.role === 'clinician';
+  const prepMeta = patient.patient_prep_updated_at ? `Updated ${formatDate(patient.patient_prep_updated_at, false)} · v${patient.patient_prep_version || 1}` : 'Shared patient instructions';
+  return `<article class="card patient-prep-card"><div class="prep-card-head"><h3>Patient-facing prep preview</h3>${canEditPrep ? '<button class="text-button" data-action="edit-prep">✎ Edit</button>' : ''}</div><div class="patient-booklet"><h4>What to prepare</h4><ul>${(patient.patient_instructions || []).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div><div class="prep-sync-note"><span>↗</span> Synchronized to the patient’s next step</div><div class="prep-meta">${escapeHtml(prepMeta)}</div></article>`;
 }
 
 function renderPatientGlance() {
@@ -203,7 +212,7 @@ function renderTimeline() {
     ? [['all', 'All context'], ['approved', 'Human-approved notes'], ['activity', 'System activity']]
     : [['all', 'All context'], ['ai', 'AI-scribed'], ['notes', 'Human notes'], ['activity', 'System activity']];
   return `<section class="card timeline-card" id="timeline">
-    <div class="timeline-head"><div><h2>Longitudinal timeline</h2><p>One continuous story · ${state.data.timeline.length} entries · provenance stays attached</p></div><button class="secondary-button" data-action="info">What is shown?</button></div>
+    <div class="timeline-head"><div><h2>Timeline</h2><p>${state.data.timeline.length} entries</p></div>${state.role !== 'patient' ? '<button class="secondary-button" data-action="info">What is shown?</button>' : ''}</div>
     <div class="timeline-tabs">${tabs.map(([key, label]) => `<button class="timeline-tab ${state.filter === key ? 'active' : ''}" data-filter="${key}">${label}</button>`).join('')}</div>
     <div class="entry-list">${entries.length ? entries.map(renderEntry).join('') : '<div class="empty-state">No entries in this view.</div>'}</div>
   </section>`;
@@ -211,15 +220,13 @@ function renderTimeline() {
 
 function renderSideRail() {
   const patient = state.data.patient;
-  const canEditPrep = state.role === 'staff' || state.role === 'clinician';
-  const prepMeta = patient.patient_prep_updated_at ? `Updated ${formatDate(patient.patient_prep_updated_at, false)} · v${patient.patient_prep_version || 1}` : 'Shared patient instructions';
   return `<aside class="side-stack ${state.role === 'patient' ? 'patient-side-stack' : ''}">
     <article class="card side-card"><h3>Care team</h3><p>Small handoffs are visible; internal comments stay role-scoped.</p>
       <div class="team-row"><span class="avatar avatar-navy">AP</span><div><strong>Dr. Arjun Patel</strong><small>Clinician · owner of plan</small></div><span class="team-status">online</span></div>
       <div class="team-row"><span class="avatar avatar-teal">LO</span><div><strong>Lena Ortiz, RN</strong><small>Staff · follow-up owner</small></div><span class="team-status">today</span></div>
       <div class="team-row"><span class="avatar avatar-yellow">MC</span><div><strong>${escapeHtml(patient.name)}</strong><small>Patient · shared insights</small></div><span class="team-status">portal</span></div>
     </article>
-    ${state.role !== 'patient' ? `<article class="card side-card"><h3>Signal hygiene</h3><p>Numbers explain attention, never replace clinical judgment.</p><div class="metric-band"><div class="metric-box"><strong>${state.data.warm_path_ms}ms</strong><small>warm glance path</small></div><div class="metric-box"><strong>100%</strong><small>source-linked signals</small></div></div><div class="structured-snapshot"><div><span>Blood pressure</span><strong>149 / 92</strong><em>above target</em></div><div><span>Allergy</span><strong>Penicillin</strong><em class="verified-text">verified</em></div></div><div class="safety-list"><div class="safety-item"><b>↳</b><span>High-risk phrases get a deterministic floor.</span></div><div class="safety-item"><b>↳</b><span>Medium confidence means “review,” not “safe.”</span></div><div class="safety-item"><b>↳</b><span>Patient copy requires an approved human surface.</span></div></div></article><article class="card side-card patient-prep-card"><div class="prep-card-head"><h3>Patient-facing prep preview</h3>${canEditPrep ? '<button class="text-button" data-action="edit-prep">✎ Edit</button>' : ''}</div><div class="patient-booklet"><h4>Bring this booklet</h4><ul>${(patient.patient_instructions || []).map((instruction) => `<li>${escapeHtml(instruction)}</li>`).join('')}</ul></div><div class="prep-meta">${escapeHtml(prepMeta)}</div></article>` : ''}
+    ${state.role !== 'patient' ? `<article class="card side-card"><h3>Signal hygiene</h3><p>Numbers explain attention, never replace clinical judgment.</p><div class="metric-band"><div class="metric-box"><strong>${state.data.warm_path_ms}ms</strong><small>warm glance path</small></div><div class="metric-box"><strong>100%</strong><small>source-linked signals</small></div></div><div class="structured-snapshot"><div><span>Blood pressure</span><strong>149 / 92</strong><em>above target</em></div><div><span>Allergy</span><strong>Penicillin</strong><em class="verified-text">verified</em></div></div><div class="safety-list"><div class="safety-item"><b>↳</b><span>High-risk phrases get a deterministic floor.</span></div><div class="safety-item"><b>↳</b><span>Medium confidence means “review,” not “safe.”</span></div><div class="safety-item"><b>↳</b><span>Patient copy requires an approved human surface.</span></div></div></article>` : ''}
   </aside>`;
 }
 

@@ -60,6 +60,12 @@ class NewRequirementTests(unittest.TestCase):
     def test_ui_contains_role_specific_surfaces(self):
         source = (Path(__file__).resolve().parents[1] / "static" / "app.js").read_text(encoding="utf-8")
         self.assertIn("Voice Consult Capture", source)
+        self.assertIn("TOP CARD · What matters now", source)
+        self.assertNotIn("10-second view", source)
+        self.assertIn("Signal Priority List", source)
+        self.assertIn("What to prepare", source)
+        self.assertIn("Synchronized to the patient’s next step", source)
+        self.assertIn("<h2>Timeline</h2>", source)
         self.assertIn("Human-approved notes", source)
         self.assertIn("trust-ledger-text", source)
         self.assertIn("decision-pending", source)
