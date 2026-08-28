@@ -24,19 +24,6 @@ python -m unittest discover -s tests -v
 
 The seeded records reset when the server restarts. This is intentional for a deterministic demo and test run.
 
-## The 90-second demo path
-
-1. Start in **Clinician** view. The **TOP CARD · What matters now** surface shows a risk reason, score, unresolved loop, and source jump without opening another page.
-2. Review the **Signal Priority List**. It shows the top three unique signals first; **See more** expands the full deduplicated list and displays corroborating source count plus the latest source.
-3. Click **Open source** on “Chest pressure”. The **Timeline** scrolls to the exact originating AI-scribed entry and highlights the matching phrase.
-4. Click **Keep** or **Dismiss**, then use **Change** to clear the decision and make it reversible. The visible learning behavior changes only after human confirmation; safety floors remain fixed.
-5. Open the staff note’s **Comment**, post a handoff with `@clinician`, confirm a patient task from the clinical Open loops surface, then use **Edit** on the clinician plan. Each edit creates a new version.
-6. Open **History** to inspect diffs and revert to an earlier version. Open **Audit trail** to see actor, action, entity, and version metadata without note content being copied into logs.
-7. Switch to **Staff / nurse** and edit **Patient-facing prep preview**. Switch to **Patient** and confirm that the next step is synchronized, the task status is visible, raw AI summaries/internal comments are absent, and only approved timeline filters are offered.
-8. Click **Voice Consult Capture**. Patients can submit only **Patient session**; clinical users can submit only **Clinical consult** or **Nurse consult**. The prototype stores no raw audio and accepts only a redacted transcript at the model boundary.
-
-The full storyboard is in [DEMO_SCRIPT.md](DEMO_SCRIPT.md).
-
 ## What is implemented
 
 - Shared patient Care Note with a top card, deduplicated priority list, open loops, role-colored Timeline, synchronized patient prep, and a text trust ledger at the bottom of clinical surfaces.
@@ -64,8 +51,6 @@ The backend does not trust UI visibility. It derives an actor from the request h
 | `static/styles.css` | Responsive visual system and interaction states |
 | `static/app.js` | Glance view, timeline, modal collaboration tools, role transitions, and source navigation |
 | `tests/` | Required micro-tests plus redaction coverage |
-| `TECHNICAL_BRIEF.md` | Architecture, schema, first-principles choices, trade-offs, and measurement notes |
-| `DEMO_SCRIPT.md` | Recording storyboard and expected proof points |
 | `ATTRIBUTION.txt` | External dependency and license disclosure |
 
 ## API surface used by the demo
